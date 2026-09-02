@@ -1,0 +1,448 @@
+/* =========================================================
+   Design tokens
+   Motif: 試験会場の受験票・答案用紙・採点スタンプ
+   ========================================================= */
+:root{
+  --ink-navy:      #16233B;
+  --ink-navy-2:    #1E304C;
+  --paper:         #F2ECD8;
+  --paper-2:       #EAE2C8;
+  --ink-text:      #202A38;
+  --muted:         #8B93A3;
+  --muted-on-paper:#7A7362;
+  --amber:         #D9A441;
+  --amber-dim:     #8A6A2E;
+  --stamp-red:     #B23B3B;
+  --line:          rgba(32,42,56,0.14);
+  --line-on-navy:  rgba(242,236,216,0.16);
+
+  --font-display: "Shippori Mincho", serif;
+  --font-body:    "Noto Sans JP", sans-serif;
+  --font-mono:    "JetBrains Mono", monospace;
+
+  --radius-card: 6px;
+  --shadow-card: 0 18px 40px rgba(9,14,24,0.35);
+}
+
+*{ box-sizing:border-box; }
+
+html,body{
+  margin:0;
+  padding:0;
+  background:var(--ink-navy);
+  color:var(--paper);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+}
+
+body{
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(217,164,65,0.07), transparent 40%),
+    radial-gradient(circle at 88% 92%, rgba(217,164,65,0.05), transparent 45%);
+  min-height:100vh;
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; }
+}
+
+/* Subtle paper-grain overlay, purely decorative */
+.ticket-noise{
+  position:fixed; inset:0; pointer-events:none; z-index:0;
+  opacity:0.035; mix-blend-mode:overlay;
+  background-image:
+    repeating-linear-gradient(0deg, #fff 0 1px, transparent 1px 3px);
+}
+
+/* =========================== Masthead =========================== */
+.app-masthead{
+  padding:48px 24px 20px;
+  text-align:center;
+  border-bottom:1px solid var(--line-on-navy);
+}
+.masthead-inner{ max-width:720px; margin:0 auto; }
+.eyebrow{
+  font-family:var(--font-mono);
+  letter-spacing:0.28em;
+  font-size:11px;
+  color:var(--amber);
+  text-transform:uppercase;
+  margin:0 0 10px;
+}
+.app-masthead h1{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:clamp(28px,5vw,42px);
+  margin:0 0 10px;
+  letter-spacing:0.02em;
+}
+.app-masthead .sub{
+  color:var(--muted);
+  font-size:14px;
+  margin:0;
+}
+
+main#app{
+  max-width:680px;
+  margin:0 auto;
+  padding:32px 20px 64px;
+  position:relative;
+  z-index:1;
+}
+
+/* =========================== Ticket card (settings / result) =========================== */
+.ticket-card{
+  background:var(--paper);
+  color:var(--ink-text);
+  border-radius:var(--radius-card);
+  box-shadow:var(--shadow-card);
+  padding:32px 28px 36px;
+  position:relative;
+  border:1px solid rgba(0,0,0,0.06);
+}
+.ticket-card::before{
+  content:"";
+  position:absolute;
+  left:0; right:0; top:96px;
+  border-top:1px dashed rgba(32,42,56,0.25);
+}
+.ticket-stub{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.18em;
+  color:var(--muted-on-paper);
+  text-transform:uppercase;
+  margin-bottom:22px;
+}
+.ticket-heading{
+  font-family:var(--font-display);
+  font-size:26px;
+  margin:0 0 26px;
+}
+
+.field-block{ margin-bottom:26px; }
+.field-label{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.08em;
+  color:var(--muted-on-paper);
+  margin:0 0 10px;
+}
+
+.choice-row{ display:flex; gap:10px; flex-wrap:wrap; }
+.pill-radio{
+  flex:1 1 160px;
+  border:1.5px solid rgba(32,42,56,0.2);
+  border-radius:4px;
+  padding:12px 14px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background:rgba(255,255,255,0.35);
+  transition:border-color .15s ease, background .15s ease;
+}
+.pill-radio:hover{ border-color:var(--amber-dim); }
+.pill-radio input{ accent-color:var(--stamp-red); width:16px; height:16px; flex-shrink:0; }
+.pill-radio span{ display:flex; flex-direction:column; line-height:1.35; }
+.pill-radio small{ color:var(--muted-on-paper); font-size:11.5px; }
+.pill-radio:has(input:checked){
+  border-color:var(--stamp-red);
+  background:rgba(178,59,59,0.07);
+}
+
+.category-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+@media (max-width:480px){ .category-grid{ grid-template-columns:1fr; } }
+.category-card{
+  border:1.5px solid rgba(32,42,56,0.2);
+  border-radius:4px;
+  padding:12px 13px;
+  cursor:pointer;
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  background:rgba(255,255,255,0.35);
+}
+.category-card input{ margin-top:3px; accent-color:var(--stamp-red); width:15px; height:15px; flex-shrink:0; }
+.category-card strong{ display:block; font-size:13.5px; }
+.category-card p{ margin:2px 0 0; font-size:11.5px; color:var(--muted-on-paper); line-height:1.4; }
+.category-card:has(input:checked){
+  border-color:var(--stamp-red);
+  background:rgba(178,59,59,0.07);
+}
+
+.count-control{ display:flex; align-items:center; gap:16px; }
+#question-count{ flex:1; accent-color:var(--stamp-red); }
+.count-readout{ font-family:var(--font-mono); display:flex; align-items:baseline; gap:4px; white-space:nowrap; }
+.count-readout span{ font-size:22px; font-weight:700; }
+.count-readout small{ color:var(--muted-on-paper); font-size:11px; }
+
+.field-error{
+  color:var(--stamp-red);
+  font-size:13px;
+  margin:-8px 0 18px;
+  font-weight:500;
+}
+
+.btn-primary{
+  width:100%;
+  background:var(--ink-navy);
+  color:var(--paper);
+  border:none;
+  border-radius:4px;
+  padding:16px 20px;
+  font-family:var(--font-body);
+  font-weight:700;
+  font-size:15px;
+  letter-spacing:0.03em;
+  cursor:pointer;
+  transition:transform .12s ease, background .15s ease;
+}
+.btn-primary:hover{ background:var(--ink-navy-2); }
+.btn-primary:active{ transform:scale(0.99); }
+
+/* =========================== Quiz screen =========================== */
+.screen{ animation:fadein .25s ease; }
+@keyframes fadein{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none; } }
+
+.quiz-topbar{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  margin-bottom:22px;
+}
+.stamp-track{
+  display:flex;
+  gap:5px;
+  flex:1;
+  flex-wrap:wrap;
+}
+.stamp-dot{
+  width:11px; height:11px;
+  border-radius:50%;
+  border:1.5px solid var(--line-on-navy);
+  flex-shrink:0;
+}
+.stamp-dot.done-correct{ background:var(--stamp-red); border-color:var(--stamp-red); }
+.stamp-dot.done-wrong{ background:transparent; border-color:var(--stamp-red); position:relative; }
+.stamp-dot.current{ border-color:var(--amber); box-shadow:0 0 0 3px rgba(217,164,65,0.18); }
+
+.quiz-meta{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  font-family:var(--font-mono);
+  white-space:nowrap;
+}
+.q-index{ font-size:14px; color:var(--paper); }
+.q-tag{
+  font-family:var(--font-body);
+  font-size:11px;
+  color:var(--amber);
+  border:1px solid var(--amber-dim);
+  border-radius:999px;
+  padding:2px 10px;
+  margin-top:4px;
+}
+
+.timer-dial{ position:relative; width:52px; height:52px; flex-shrink:0; }
+.timer-dial svg{ width:100%; height:100%; transform:rotate(-90deg); }
+.dial-track{ fill:none; stroke:var(--line-on-navy); stroke-width:4; }
+.dial-progress{
+  fill:none;
+  stroke:var(--amber);
+  stroke-width:4;
+  stroke-linecap:round;
+  stroke-dasharray:163.36;
+  stroke-dashoffset:0;
+  transition:stroke-dashoffset .25s linear, stroke .25s ease;
+}
+.dial-progress.warn{ stroke:var(--stamp-red); }
+#timer-readout{
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-mono);
+  font-size:13px;
+  font-weight:700;
+}
+
+.answer-sheet{
+  background:var(--paper);
+  color:var(--ink-text);
+  border-radius:var(--radius-card);
+  box-shadow:var(--shadow-card);
+  padding:28px 26px 30px;
+}
+.q-exam-tag{
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.12em;
+  color:var(--muted-on-paper);
+  margin:0 0 14px;
+  text-transform:uppercase;
+}
+.q-prompt{
+  font-size:15.5px;
+  line-height:1.85;
+  white-space:pre-wrap;
+  margin-bottom:18px;
+}
+.q-prompt .clue-list{ margin:10px 0 0; padding-left:1.3em; }
+.q-prompt .clue-list li{ margin-bottom:4px; }
+
+.q-table-wrap{ margin-bottom:20px; overflow-x:auto; }
+.q-table-wrap table{
+  border-collapse:collapse;
+  width:100%;
+  font-family:var(--font-mono);
+  font-size:13px;
+}
+.q-table-wrap th, .q-table-wrap td{
+  border:1px solid rgba(32,42,56,0.25);
+  padding:8px 10px;
+  text-align:right;
+}
+.q-table-wrap th:first-child, .q-table-wrap td:first-child{ text-align:left; font-family:var(--font-body); }
+.q-table-wrap th{ background:rgba(32,42,56,0.06); }
+
+.bubble-list{ display:flex; flex-direction:column; gap:10px; }
+.bubble-item{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  border:1.5px solid rgba(32,42,56,0.22);
+  border-radius:4px;
+  padding:13px 16px;
+  cursor:pointer;
+  background:rgba(255,255,255,0.4);
+  text-align:left;
+  font-family:var(--font-body);
+  font-size:14.5px;
+  color:var(--ink-text);
+  transition:border-color .12s ease, background .12s ease;
+}
+.bubble-item:hover:not(:disabled){ border-color:var(--amber-dim); }
+.bubble-mark{
+  width:26px; height:26px;
+  border-radius:50%;
+  border:2px solid rgba(32,42,56,0.35);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-mono);
+  font-size:12px;
+  font-weight:700;
+  flex-shrink:0;
+  position:relative;
+}
+.bubble-item:disabled{ cursor:default; }
+.bubble-item.selected .bubble-mark{ border-color:var(--ink-navy); background:var(--ink-navy); color:var(--paper); }
+.bubble-item.correct-answer{ background:rgba(178,59,59,0.08); border-color:var(--stamp-red); }
+.bubble-item.correct-answer .bubble-mark{
+  border-color:var(--stamp-red);
+  color:var(--stamp-red);
+}
+.bubble-item.correct-answer .bubble-mark::after{
+  content:"○";
+  position:absolute; inset:-6px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:30px; color:var(--stamp-red);
+  transform:rotate(-8deg);
+  animation:stamp-in .28s ease;
+}
+.bubble-item.wrong-answer{ opacity:0.55; }
+.bubble-item.wrong-answer .bubble-mark::after{
+  content:"✕";
+  position:absolute; inset:-6px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:26px; color:var(--stamp-red);
+  transform:rotate(6deg);
+  animation:stamp-in .28s ease;
+}
+@keyframes stamp-in{
+  from{ opacity:0; transform:scale(1.6) rotate(-16deg); }
+  to{ opacity:1; }
+}
+
+.explanation-panel{
+  margin-top:22px;
+  padding-top:18px;
+  border-top:1px dashed rgba(32,42,56,0.25);
+}
+.explanation-verdict{
+  font-family:var(--font-display);
+  font-size:17px;
+  margin:0 0 8px;
+}
+.explanation-verdict.is-correct{ color:var(--stamp-red); }
+.explanation-verdict.is-wrong{ color:var(--ink-navy); }
+.explanation-body{
+  font-size:13.5px;
+  line-height:1.75;
+  color:var(--muted-on-paper);
+  white-space:pre-wrap;
+  margin:0 0 18px;
+}
+
+/* =========================== Result screen =========================== */
+.score-hero{ text-align:center; margin-bottom:28px; }
+.score-big{
+  font-family:var(--font-mono);
+  font-size:56px;
+  font-weight:700;
+  line-height:1;
+}
+.score-big small{ font-size:22px; color:var(--muted-on-paper); font-weight:500; }
+.score-caption{ color:var(--muted-on-paper); font-size:13px; margin-top:8px; }
+
+.category-breakdown{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:10px;
+  margin-bottom:30px;
+}
+.breakdown-item{
+  border:1px solid rgba(32,42,56,0.18);
+  border-radius:4px;
+  padding:12px 14px;
+}
+.breakdown-item strong{ display:block; font-size:12.5px; margin-bottom:6px; }
+.breakdown-item span{ font-family:var(--font-mono); font-size:18px; }
+
+.review-heading{
+  font-family:var(--font-display);
+  font-size:18px;
+  margin:0 0 14px;
+}
+.review-list{ display:flex; flex-direction:column; gap:10px; margin-bottom:28px; }
+.review-item{
+  border:1px solid rgba(32,42,56,0.18);
+  border-radius:4px;
+  padding:14px 16px;
+}
+.review-item .review-head{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--muted-on-paper);
+  margin-bottom:8px;
+}
+.review-item .review-verdict{ font-weight:700; }
+.review-item .review-verdict.ok{ color:var(--stamp-red); }
+.review-item .review-q{ font-size:13.5px; margin:0 0 6px; white-space:pre-wrap; line-height:1.6; }
+.review-item .review-ans{ font-size:12.5px; color:var(--muted-on-paper); margin:0; }
+
+/* =========================== Footer =========================== */
+.app-footer{
+  text-align:center;
+  color:var(--muted);
+  font-size:11.5px;
+  padding:0 20px 40px;
+}

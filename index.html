@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>判断推理・資料解釈トレーニング | SPI-U / SPI-H 対応</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Noto+Sans+JP:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="ticket-noise" aria-hidden="true"></div>
+
+<header class="app-masthead">
+  <div class="masthead-inner">
+    <p class="eyebrow">推論演習 / 資料解釈演習</p>
+    <h1>判断推理トレーニングルーム</h1>
+    <p class="sub">SPI-U・SPI-H 非言語 &mdash; 毎回自動生成されるオリジナル問題で本試験レベルを再現</p>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- ================= SETTINGS SCREEN ================= -->
+  <section id="screen-settings" class="screen ticket-card" aria-labelledby="settings-title">
+    <div class="ticket-stub">
+      <span>ADMIT ONE</span>
+      <span>受験票</span>
+    </div>
+
+    <h2 id="settings-title" class="ticket-heading">受験設定</h2>
+
+    <div class="field-block">
+      <p class="field-label">01 &mdash; 出題区分</p>
+      <div class="choice-row" id="exam-type-row">
+        <label class="pill-radio">
+          <input type="radio" name="examType" value="U" checked>
+          <span><strong>SPI-U</strong><small>大学生・大学院生向け</small></span>
+        </label>
+        <label class="pill-radio">
+          <input type="radio" name="examType" value="H">
+          <span><strong>SPI-H</strong><small>高校生向け</small></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field-block">
+      <p class="field-label">02 &mdash; 難易度</p>
+      <div class="choice-row" id="difficulty-row">
+        <label class="pill-radio">
+          <input type="radio" name="difficulty" value="mid" checked>
+          <span><strong>中級</strong><small>本試験標準レベル</small></span>
+        </label>
+        <label class="pill-radio">
+          <input type="radio" name="difficulty" value="high">
+          <span><strong>上級</strong><small>本試験ハイレベル</small></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field-block">
+      <p class="field-label">03 &mdash; 出題範囲（判断推理・資料解釈系）</p>
+      <div class="category-grid" id="category-grid">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <div class="field-block">
+      <p class="field-label">04 &mdash; 出題数</p>
+      <div class="count-control">
+        <input type="range" id="question-count" min="1" max="10" value="10" step="1">
+        <div class="count-readout"><span id="question-count-value">10</span><small>問（重複なし）</small></div>
+      </div>
+    </div>
+
+    <p class="field-error" id="settings-error" hidden>出題範囲を1つ以上選択してください。</p>
+
+    <button class="btn-primary" id="start-btn">試験を開始する</button>
+  </section>
+
+  <!-- ================= QUIZ SCREEN ================= -->
+  <section id="screen-quiz" class="screen" hidden>
+    <div class="quiz-topbar">
+      <div class="stamp-track" id="stamp-track"></div>
+      <div class="quiz-meta">
+        <span class="q-index"><span id="q-current">1</span> / <span id="q-total">10</span></span>
+        <span class="q-tag" id="q-category-tag">順序推論</span>
+      </div>
+      <div class="timer-dial">
+        <svg viewBox="0 0 60 60">
+          <circle class="dial-track" cx="30" cy="30" r="26"></circle>
+          <circle class="dial-progress" id="dial-progress" cx="30" cy="30" r="26"></circle>
+        </svg>
+        <span id="timer-readout">60</span>
+      </div>
+    </div>
+
+    <article class="answer-sheet">
+      <p class="q-exam-tag" id="q-exam-tag">SPI-U ／ 中級</p>
+      <div class="q-prompt" id="q-prompt"></div>
+      <div class="q-table-wrap" id="q-table-wrap" hidden></div>
+
+      <div class="bubble-list" id="bubble-list"></div>
+
+      <div class="explanation-panel" id="explanation-panel" hidden>
+        <p class="explanation-verdict" id="explanation-verdict"></p>
+        <p class="explanation-body" id="explanation-body"></p>
+        <button class="btn-primary" id="next-btn">次の問題へ</button>
+      </div>
+    </article>
+  </section>
+
+  <!-- ================= RESULT SCREEN ================= -->
+  <section id="screen-result" class="screen ticket-card" hidden>
+    <div class="ticket-stub">
+      <span>GRADED</span>
+      <span>採点済み答案</span>
+    </div>
+    <h2 class="ticket-heading">結果</h2>
+
+    <div class="score-hero">
+      <div class="score-big"><span id="score-correct">0</span><small>/ <span id="score-total">10</span></small></div>
+      <p class="score-caption" id="score-caption">お疲れさまでした</p>
+    </div>
+
+    <div class="category-breakdown" id="category-breakdown"></div>
+
+    <h3 class="review-heading">解答レビュー</h3>
+    <div class="review-list" id="review-list"></div>
+
+    <button class="btn-primary" id="retry-btn">設定に戻ってもう一度</button>
+  </section>
+
+</main>
+
+<footer class="app-footer">
+  <p>全ての問題はブラウザ内でその場生成されます（外部通信・APIキー不要）。GitHub Pagesでそのまま公開できます。</p>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
