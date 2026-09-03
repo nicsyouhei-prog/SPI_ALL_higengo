@@ -73,7 +73,7 @@ const CATEGORIES = [
   { id: 'truth',    label: '発言の真偽', desc: '一部が嘘をつく発言から事実を特定する', group: 'judgment', enabled: true },
   { id: 'logic',    label: '命題・論理', desc: '「AならばB」の連鎖から必ず正しい推論を選ぶ', group: 'judgment', enabled: true },
   { id: 'match',    label: '対戦成績', desc: 'リーグ戦の勝敗数の合計から、分からないチームの成績を特定する', group: 'judgment', enabled: true },
-  { id: 'flow',     label: '物の流れと比率', desc: '比率にしたがって人や物が経路を流れる様子から、到達率や人数を求める', group: 'judgment', enabled: true },
+  { id: 'flow',     label: '物の流れと比率', desc: '比率にしたがって人や物が経路を流れる様子から、到達率や人数を求める', group: 'judgment', enabled: false },
   { id: 'sets',     label: '集合', desc: 'ベン図の関係から、条件に当てはまる人数を求める', group: 'quant', enabled: true },
   { id: 'pnc',      label: '場合の数', desc: '順列・組み合わせの総数を求める', group: 'quant', enabled: true },
   { id: 'probability', label: '確率', desc: 'くじ・カード・サイコロなどの確率を求める', group: 'quant', enabled: true },
