@@ -154,25 +154,59 @@ main#app{
   background:rgba(178,59,59,0.07);
 }
 
-.category-grid{
+.category-group{ margin-bottom:18px; }
+.category-group:last-child{ margin-bottom:0; }
+.category-group-header{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+}
+.category-group-title{
+  font-family:var(--font-body);
+  font-weight:700;
+  font-size:13px;
+  color:var(--ink-text);
+}
+.category-group-title small{
+  font-weight:500;
+  color:var(--muted-on-paper);
+  font-size:11px;
+  margin-left:4px;
+}
+.category-group-toggle{
+  background:none;
+  border:none;
+  color:var(--stamp-red);
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.02em;
+  cursor:pointer;
+  padding:2px 4px;
+  flex-shrink:0;
+}
+.category-group-toggle:hover{ text-decoration:underline; }
+
+.category-grid-inner{
   display:grid;
   grid-template-columns:1fr 1fr;
-  gap:10px;
+  gap:8px;
 }
-@media (max-width:480px){ .category-grid{ grid-template-columns:1fr; } }
+@media (max-width:480px){ .category-grid-inner{ grid-template-columns:1fr; } }
 .category-card{
   border:1.5px solid rgba(32,42,56,0.2);
   border-radius:4px;
-  padding:12px 13px;
+  padding:10px 12px;
   cursor:pointer;
   display:flex;
-  gap:10px;
+  gap:9px;
   align-items:flex-start;
   background:rgba(255,255,255,0.35);
 }
 .category-card input{ margin-top:3px; accent-color:var(--stamp-red); width:15px; height:15px; flex-shrink:0; }
-.category-card strong{ display:block; font-size:13.5px; }
-.category-card p{ margin:2px 0 0; font-size:11.5px; color:var(--muted-on-paper); line-height:1.4; }
+.category-card strong{ display:block; font-size:13px; }
+.category-card p{ margin:2px 0 0; font-size:11px; color:var(--muted-on-paper); line-height:1.35; }
 .category-card:has(input:checked){
   border-color:var(--stamp-red);
   background:rgba(178,59,59,0.07);
@@ -207,6 +241,14 @@ main#app{
 }
 .btn-primary:hover{ background:var(--ink-navy-2); }
 .btn-primary:active{ transform:scale(0.99); }
+
+@media (max-width:480px){
+  #start-btn{
+    position:sticky;
+    bottom:12px;
+    box-shadow:0 8px 24px rgba(9,14,24,0.45);
+  }
+}
 
 /* =========================== Quiz screen =========================== */
 .screen{ animation:fadein .25s ease; }
