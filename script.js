@@ -67,20 +67,27 @@ function pickTargetIndex(n, revealedSet) {
 
 /* ------------------------- 出題範囲メタデータ ------------------------- */
 const CATEGORIES = [
-  { id: 'order',    label: '順序推理', desc: '順位・大小関係の条件から確実に言えることを導く（判断推理）' },
-  { id: 'matching', label: '対応推理', desc: '人と属性の対応関係を条件から特定する（判断推理）' },
-  { id: 'position', label: '位置推理', desc: '座席・配置の位置関係を条件から特定する（判断推理）' },
-  { id: 'truth',    label: '発言の真偽', desc: '一部が嘘をつく発言から事実を特定する（判断推理）' },
-  { id: 'logic',    label: '命題・論理', desc: '「AならばB」の連鎖から必ず正しい推論を選ぶ（判断推理）' },
-  { id: 'match',    label: '対戦成績', desc: 'リーグ戦の勝敗数の合計から、分からないチームの成績を特定する（判断推理）' },
-  { id: 'flow',     label: '物の流れと比率', desc: '比率にしたがって人や物が経路を流れる様子から、到達率や人数を求める' },
-  { id: 'sets',     label: '集合', desc: 'ベン図の関係から、条件に当てはまる人数を求める（数的推理）' },
-  { id: 'pnc',      label: '場合の数', desc: '順列・組み合わせの総数を求める（数的推理）' },
-  { id: 'probability', label: '確率', desc: 'くじ・カード・サイコロなどの確率を求める（数的推理）' },
-  { id: 'profit',   label: '損益算', desc: '原価・定価・利益率・割引から売値や利益を求める（数的推理）' },
-  { id: 'ratio',    label: '割合・増加率', desc: '割合や増加率から、全体・部分の数量を求める（数的推理）' },
-  { id: 'data',     label: '資料解釈', desc: '表データから増加率・構成比を読み取る（資料解釈）' },
+  { id: 'order',    label: '順序推理', desc: '順位・大小関係の条件から確実に言えることを導く', group: 'judgment', enabled: true },
+  { id: 'matching', label: '対応推理', desc: '人と属性の対応関係を条件から特定する', group: 'judgment', enabled: true },
+  { id: 'position', label: '位置推理', desc: '座席・配置の位置関係を条件から特定する', group: 'judgment', enabled: true },
+  { id: 'truth',    label: '発言の真偽', desc: '一部が嘘をつく発言から事実を特定する', group: 'judgment', enabled: true },
+  { id: 'logic',    label: '命題・論理', desc: '「AならばB」の連鎖から必ず正しい推論を選ぶ', group: 'judgment', enabled: true },
+  { id: 'match',    label: '対戦成績', desc: 'リーグ戦の勝敗数の合計から、分からないチームの成績を特定する', group: 'judgment', enabled: true },
+  { id: 'flow',     label: '物の流れと比率', desc: '比率にしたがって人や物が経路を流れる様子から、到達率や人数を求める', group: 'judgment', enabled: true },
+  { id: 'sets',     label: '集合', desc: 'ベン図の関係から、条件に当てはまる人数を求める', group: 'quant', enabled: true },
+  { id: 'pnc',      label: '場合の数', desc: '順列・組み合わせの総数を求める', group: 'quant', enabled: true },
+  { id: 'probability', label: '確率', desc: 'くじ・カード・サイコロなどの確率を求める', group: 'quant', enabled: true },
+  { id: 'profit',   label: '損益算', desc: '原価・定価・利益率・割引から売値や利益を求める', group: 'quant', enabled: true },
+  { id: 'ratio',    label: '割合・増加率', desc: '割合や増加率から、全体・部分の数量を求める', group: 'quant', enabled: true },
+  { id: 'data',     label: '資料解釈', desc: '表データから増加率・構成比を読み取る', group: 'data', enabled: true },
 ];
+const CATEGORY_GROUPS = [
+  { id: 'judgment', label: '判断推理' },
+  { id: 'quant',    label: '数的推理' },
+  { id: 'data',     label: '資料解釈' },
+];
+// 学校側で分野ごとに公開／非公開を切り替える場合は、上のCATEGORIESの該当する行の
+// enabled を true / false に書き換えてください（false にした分野は生徒側の画面に一切表示されません）。
 const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map(c => [c.id, c.label]));
 
 // 順序・対応・位置・発言の真偽・対戦成績で使う人物/チームラベル（最大8まで対応）
@@ -1419,14 +1426,46 @@ function buildSession(selectedCategories, count, examType, difficulty) {
   function renderCategoryGrid() {
     const grid = el('category-grid');
     grid.innerHTML = '';
-    CATEGORIES.forEach(cat => {
-      const label = document.createElement('label');
-      label.className = 'category-card';
-      label.innerHTML = `
-        <input type="checkbox" name="category" value="${cat.id}" checked>
-        <span><strong>${cat.label}</strong><p>${cat.desc}</p></span>
-      `;
-      grid.appendChild(label);
+    CATEGORY_GROUPS.forEach(group => {
+      const cats = CATEGORIES.filter(c => c.group === group.id && c.enabled !== false);
+      if (cats.length === 0) return; // 学校側でグループ内を全て非公開にした場合は見出しごと非表示
+
+      const section = document.createElement('div');
+      section.className = 'category-group';
+
+      const header = document.createElement('div');
+      header.className = 'category-group-header';
+      const title = document.createElement('span');
+      title.className = 'category-group-title';
+      title.innerHTML = `${group.label}<small>（${cats.length}分野）</small>`;
+      const toggleBtn = document.createElement('button');
+      toggleBtn.type = 'button';
+      toggleBtn.className = 'category-group-toggle';
+      toggleBtn.textContent = '全て解除';
+      header.appendChild(title);
+      header.appendChild(toggleBtn);
+      section.appendChild(header);
+
+      const cardsWrap = document.createElement('div');
+      cardsWrap.className = 'category-grid-inner';
+      cats.forEach(cat => {
+        const label = document.createElement('label');
+        label.className = 'category-card';
+        label.innerHTML = `
+          <input type="checkbox" name="category" value="${cat.id}" checked>
+          <span><strong>${cat.label}</strong><p>${cat.desc}</p></span>
+        `;
+        cardsWrap.appendChild(label);
+      });
+      section.appendChild(cardsWrap);
+      grid.appendChild(section);
+
+      toggleBtn.addEventListener('click', () => {
+        const boxes = Array.from(cardsWrap.querySelectorAll('input[type="checkbox"]'));
+        const allChecked = boxes.every(cb => cb.checked);
+        boxes.forEach(cb => { cb.checked = !allChecked; });
+        toggleBtn.textContent = allChecked ? '全て選択' : '全て解除';
+      });
     });
   }
   renderCategoryGrid();
