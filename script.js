@@ -443,6 +443,12 @@ function generatePositionProblem(examType, difficulty) {
    4. 発言の真偽
    ============================================================ */
 function generateTruthProblem(examType, difficulty) {
+  return Math.random() < 0.5
+    ? buildCulpritTruthProblem(examType, difficulty)
+    : buildImplicationTruthProblem(examType, difficulty);
+}
+
+function buildCulpritTruthProblem(examType, difficulty) {
   const { n } = paramsFor(examType, difficulty, 'truth');
   const suspects = ENTITY_LETTERS.slice(0, n);
   const K = difficulty === 'high' && Math.random() < 0.5 ? n - 1 : 1;
@@ -493,6 +499,145 @@ function generateTruthProblem(examType, difficulty) {
   const explanation = `各人が犯人であると仮定して証言の真偽をすべて検証すると、「${condText}」という条件に一致するのは${correctAnswer}が犯人の場合のみである。よって犯人は${correctAnswer}。`;
 
   return { prompt, choices, correctIndex: choices.indexOf(correctAnswer), explanation };
+}
+
+/* ------------------------------------------------------------
+   発言の真偽（含意関係パターン）
+   ------------------------------------------------------------
+   「Pが正しければQも必ず正しいか」というタイプの問題。
+   背後にある場合分けを漏れなく列挙し、各候補の真偽をその場合分けごとに
+   機械的に判定した上で、含意関係を総当たりで自動検証する（人手の真偽表
+   を用意しないため、判定ミスが入り込む余地がない）。
+   ------------------------------------------------------------ */
+function buildImplicationProblem(subjectDesc, cases, allStatements, chosenIds, verifyHint) {
+  const chosen = chosenIds.map(id => allStatements.find(s => s.id === id));
+  const [s0, s1, s2] = chosen;
+
+  function implies(from, to) {
+    return cases.every(c => !from.test(c) || to.test(c));
+  }
+  const flags = [implies(s0, s1), implies(s1, s2), implies(s2, s0)];
+  const labels = ['ア', 'イ', 'ウ'];
+  const { choices, correctText } = subsetChoiceSet(labels, flags);
+
+  const reportLines = chosen.map(s => `${s.name}　${s.desc}`).join('\n');
+  const arrowLines = [
+    `ア　${s0.name}が正しければ${s1.name}も必ず正しい`,
+    `イ　${s1.name}が正しければ${s2.name}も必ず正しい`,
+    `ウ　${s2.name}が正しければ${s0.name}も必ず正しい`,
+  ].join('\n');
+  const prompt = `${subjectDesc}\n\n${reportLines}\n\n以上の報告は、必ずしもすべてが信用できるとはいえない。次の推論ア、イ、ウのうち、確実に正しいものはどれか。\n\n${arrowLines}`;
+
+  const detailLines = [
+    `ア（${s0.name}→${s1.name}）は${flags[0] ? '常に成り立つ' : '成り立たない場合がある'}。`,
+    `イ（${s1.name}→${s2.name}）は${flags[1] ? '常に成り立つ' : '成り立たない場合がある'}。`,
+    `ウ（${s2.name}→${s0.name}）は${flags[2] ? '常に成り立つ' : '成り立たない場合がある'}。`,
+  ].join('\n');
+  const explanation = `${verifyHint}\n${detailLines}\nしたがって正しい推論は「${correctText}」である。`;
+
+  return { prompt, choices, correctIndex: choices.indexOf(correctText), explanation };
+}
+
+const IMPLICATION_ACTIVITY_POOL = ['やり投げの飛距離', '走り幅跳びの記録', 'ボール投げの距離'];
+
+function buildJavelinImplication(difficulty) {
+  const [p1, p2] = shuffle(ENTITY_LETTERS).slice(0, 2);
+  const activity = pick(IMPLICATION_ACTIVITY_POOL);
+  const reportSet = pick([['P', 'Q', 'R'], ['X', 'Y', 'Z'], ['S', 'T', 'U']]);
+
+  // 場合分け：1回目・2回目それぞれの勝敗(r1,r2)と、合計の大小(s)。
+  // 「両方勝てば合計も勝ち」「両方負ければ合計も負け」という制約だけを課し、
+  // それ以外（1勝1敗）は合計がどちらに転んでも良い、として全パターンを列挙する。
+  const cases = [];
+  for (const r1 of [true, false]) for (const r2 of [true, false]) for (const s of [true, false]) {
+    if (r1 && r2 && !s) continue;
+    if (!r1 && !r2 && s) continue;
+    cases.push({ r1, r2, s });
+  }
+
+  const basicTypes = [
+    { key: 'sum', desc: `${p1}と${p2}が2回ずつ${activity}をおこなった。1回目と2回目の合計は${p2}の方が長かった`, test: c => c.s },
+    { key: 'every', desc: `${p1}と${p2}が2回ずつ${activity}をおこなった。1回目も2回目も${p2}の方が長かった`, test: c => c.r1 && c.r2 },
+    { key: 'atLeast', desc: `${p1}と${p2}が2回ずつ${activity}をおこなった。少なくともどちらか1回は${p2}の方が長かった`, test: c => c.r1 || c.r2 },
+  ];
+  const advancedTypes = [
+    { key: 'round1', desc: `${p1}と${p2}が2回ずつ${activity}をおこなった。1回目は${p2}の方が長かった`, test: c => c.r1 },
+    { key: 'round2', desc: `${p1}と${p2}が2回ずつ${activity}をおこなった。2回目は${p2}の方が長かった`, test: c => c.r2 },
+    { key: 'exactlyOne', desc: `${p1}と${p2}が2回ずつ${activity}をおこなった。1回目と2回目のうち、ちょうど1回だけ${p2}の方が長かった`, test: c => c.r1 !== c.r2 },
+  ];
+  const pool = difficulty === 'high' ? [...basicTypes, ...advancedTypes] : basicTypes.concat(advancedTypes.slice(0, 1));
+  const picked = shuffle(pool).slice(0, 3);
+  const cleanedStatements = picked.map((t, i) => ({ id: t.key, name: reportSet[i], desc: t.desc.split('。').slice(1).join('。'), test: t.test }));
+
+  const subjectDesc = `${p1}と${p2}の2人が2回ずつ${activity}を競った。このときの結果について、${reportSet.join('、')}の3通りの報告がある。`;
+  const verifyHint = `1回目・2回目それぞれの勝敗と、合計の大小について考えられる場合分けをすべて書き出し、各報告の真偽を照らし合わせて検証すると、次のことが分かる。`;
+
+  return buildImplicationProblem(subjectDesc, cases, cleanedStatements, cleanedStatements.map(s => s.id), verifyHint);
+}
+
+function buildExitOrderImplication() {
+  const [p1, p2, p3] = shuffle(ENTITY_LETTERS).slice(0, 3);
+  const perms = permutations([0, 1, 2]); // 0=p1,1=p2,2=p3 のインデックスを退店順に並べたもの
+  const cases = perms.map(order => {
+    const rank = [0, 0, 0];
+    order.forEach((personIdx, r) => { rank[personIdx] = r; });
+    return { rank };
+  });
+
+  const focalIsFirst = Math.random() < 0.5;
+  const focalDesc = focalIsFirst ? '自分が最初に店を出た' : '自分が最後に店を出た';
+  const focalTest = focalIsFirst ? (c => c.rank[0] === 0) : (c => c.rank[0] === 2);
+
+  function buildOther(personIdx, personName) {
+    const kind = pick(['after', 'before']);
+    if (kind === 'after') return { desc: `自分が店を出たとき、${p1}はもう店にいなかった`, test: c => c.rank[0] < c.rank[personIdx] };
+    return { desc: `自分が店を出たとき、${p1}はまだ店に残っていた`, test: c => c.rank[personIdx] < c.rank[0] };
+  }
+
+  const statements = [
+    { id: 'p1', name: p1, desc: focalDesc, test: focalTest },
+    { id: 'p2', name: p2, ...buildOther(1, p2) },
+    { id: 'p3', name: p3, ...buildOther(2, p3) },
+  ];
+
+  const subjectDesc = `ある店の客${p1}、${p2}、${p3}が店を出た順番について、それぞれ次のように述べた。`;
+  const verifyHint = `3人の退店順として考えられる${cases.length}通りをすべて書き出し、各人の発言の真偽を照らし合わせて検証すると、次のことが分かる。`;
+
+  return buildImplicationProblem(subjectDesc, cases, statements, ['p1', 'p2', 'p3'], verifyHint);
+}
+
+const IMPLICATION_PAIR_POOL = [['虎', '龍'], ['太陽', '月'], ['山', '川'], ['花', '鳥']];
+
+function buildEitherOrImplication(difficulty) {
+  const [itemA, itemB] = pick(IMPLICATION_PAIR_POOL);
+  const reportSet = pick([['X', 'Y', 'Z'], ['P', 'Q', 'R'], ['S', 'T', 'U']]);
+  const cases = [];
+  for (const a of [true, false]) for (const b of [true, false]) cases.push({ a, b });
+
+  const basicTypes = [
+    { key: 'a', desc: `この絵には${itemA}が描かれている`, test: c => c.a },
+    { key: 'b', desc: `この絵には${itemB}が描かれている`, test: c => c.b },
+    { key: 'or', desc: `この絵には少なくとも${itemA}か${itemB}が描かれている`, test: c => c.a || c.b },
+  ];
+  const advancedTypes = [
+    { key: 'and', desc: `この絵には${itemA}と${itemB}の両方が描かれている`, test: c => c.a && c.b },
+    { key: 'xor', desc: `この絵には${itemA}か${itemB}のどちらか一方だけが描かれている`, test: c => c.a !== c.b },
+  ];
+  const pool = difficulty === 'high' ? [...basicTypes, ...advancedTypes] : basicTypes;
+  const picked = shuffle(pool).slice(0, 3);
+  const statements = picked.map((t, i) => ({ id: t.key, name: reportSet[i], desc: t.desc, test: t.test }));
+
+  const subjectDesc = `ある1枚の絵について、${reportSet.join('、')}の3通りの報告がある。`;
+  const verifyHint = `${itemA}・${itemB}それぞれが描かれているか否かの${cases.length}通りをすべて書き出し、各報告の真偽を照らし合わせて検証すると、次のことが分かる。`;
+
+  return buildImplicationProblem(subjectDesc, cases, statements, statements.map(s => s.id), verifyHint);
+}
+
+function buildImplicationTruthProblem(examType, difficulty) {
+  const template = pick(['javelin', 'exitOrder', 'eitherOr']);
+  if (template === 'javelin') return buildJavelinImplication(difficulty);
+  if (template === 'exitOrder') return buildExitOrderImplication();
+  return buildEitherOrImplication(difficulty);
 }
 
 /* ============================================================
