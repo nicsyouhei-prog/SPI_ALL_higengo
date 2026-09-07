@@ -523,8 +523,22 @@ function generateLogicProblem(examType, difficulty) {
   const varCount = L + 1;
   const phrasePool = shuffle(['読書が好きだ', '早起きだ', '几帳面だ', '運動が得意だ', '絵が上手だ', '計画的だ', '聞き上手だ']);
   const phrases = phrasePool.slice(0, varCount);
+
+  // 前提の連鎖（0→1→2→…）は保つが、各リンクの否定の有無・表示形（順接／対偶）を
+  // ランダム化し、毎回「AならばB、BならばC」という同じ形にならないようにする。
   const premises = [];
-  for (let i = 0; i < L; i++) premises.push({ ant: { var: i, neg: false }, cons: { var: i + 1, neg: false } });
+  let curLit = { var: 0, neg: Math.random() < 0.5 };
+  for (let i = 0; i < L; i++) {
+    const nextLit = { var: i + 1, neg: Math.random() < 0.5 };
+    const asContrapositive = Math.random() < 0.5;
+    if (asContrapositive) {
+      // ¬cons → ¬ant の形（対偶）で表示する。論理的にはant→consと同値。
+      premises.push({ ant: { var: nextLit.var, neg: !nextLit.neg }, cons: { var: curLit.var, neg: !curLit.neg } });
+    } else {
+      premises.push({ ant: curLit, cons: nextLit });
+    }
+    curLit = nextLit;
+  }
 
   const seen = new Set();
   const validCands = [], invalidCands = [];
@@ -572,6 +586,12 @@ function buildTableHTML(years, stores, table, rowLabel) {
    常に一定になる。この不変量を使い、1チーム以外の勝敗数を示した上で、
    残る1チームの勝敗数を一意に確定させる。 */
 function generateMatchProblem(examType, difficulty) {
+  return Math.random() < 0.5
+    ? buildRoundRobinMatchProblem(examType, difficulty)
+    : buildEliminationMatchProblem(difficulty);
+}
+
+function buildRoundRobinMatchProblem(examType, difficulty) {
   const { n } = paramsFor(examType, difficulty, 'match');
   const teams = ENTITY_LETTERS.slice(0, n);
   const totalMatches = (n * (n - 1)) / 2;
@@ -610,6 +630,57 @@ function generateMatchProblem(examType, difficulty) {
     shuffle(shownLines).map((c, i) => `条件${i + 1}：${c.text}`).join('\n');
 
   const explanation = `${n}チームの総当たり戦の総試合数は${n}×${n - 1}÷2＝${totalMatches}試合で、1試合ごとに必ず1勝が生まれるため、全チームの勝ち数の合計は常に${totalMatches}になる。${targetTeam}以外の${n - 1}チームの勝ち数の合計は${knownWinsSum}なので、${targetTeam}の勝ち数は${totalMatches}－${knownWinsSum}＝${targetWins}勝、よって${targetLosses}敗（${targetWins}勝${targetLosses}敗）と一意に確定する。`;
+
+  return { prompt, choices, correctIndex: choices.indexOf(correctText), explanation };
+}
+
+/* 勝ち残り式トーナメント戦（総当たり戦とはチーム数のレンジを分けている：
+   総当たり戦は5〜8チーム程度が典型だが、勝ち残り戦は2の累乗（4・8・16…）で
+   ブロックが組まれるのが実態に近いため、専用のチーム数プールを使う）。 */
+function buildEliminationMatchProblem(difficulty) {
+  const pool = difficulty === 'mid' ? [4, 8] : [8, 16, 32];
+  const n = pick(pool);
+  const totalRounds = Math.log2(n);
+  const totalMatches = n - 1;
+  const variant = pick(['totalMatches', 'championWins', 'eliminatedInRound', 'reverseTeamCount']);
+  let prompt, correctValue, explanation, unit;
+
+  if (variant === 'totalMatches') {
+    correctValue = totalMatches;
+    unit = '試合';
+    prompt = `${n}チームによる勝ち残り式のトーナメント戦（引き分けはなく、1回でも負けたチームはその時点で敗退する）をおこなった。優勝チームが決まるまでに、全部で何試合おこなわれるか。`;
+    explanation = `優勝チームが決まるには、優勝チーム以外の${n - 1}チームが全て一度は敗退している必要がある。1試合ごとに必ず1チームが敗退するので、総試合数は${n}－1＝${totalMatches}試合となる。`;
+  } else if (variant === 'championWins') {
+    correctValue = totalRounds;
+    unit = '回';
+    prompt = `${n}チームによる勝ち残り式のトーナメント戦をおこなった（引き分けはなく、1回勝つごとに次の回に進む）。優勝チームは合計何回勝ったことになるか。`;
+    explanation = `${n}チームが勝ち残り式で1チームに絞り込まれるまでのラウンド数は、${n}＝2^${totalRounds}より${totalRounds}回。優勝チームは毎回勝ち上がっているので、勝った回数も${totalRounds}回となる。`;
+  } else if (variant === 'eliminatedInRound') {
+    const round = randInt(1, totalRounds);
+    correctValue = n / Math.pow(2, round);
+    unit = 'チーム';
+    const roundLabel = round === totalRounds ? '決勝' : `第${round}回戦`;
+    prompt = `${n}チームによる勝ち残り式のトーナメント戦をおこなった（引き分けはなく、1回でも負けたチームはその時点で敗退する）。${roundLabel}で敗退するのは何チームか。`;
+    explanation = `勝ち残り数は1回戦ごとに半分になっていく（${n}チーム→${n / 2}チーム→…）。${roundLabel}の時点で対戦しているチーム数は${correctValue * 2}チームであり、そのうち負けて敗退するのは${correctValue}チームとなる。`;
+  } else {
+    const wins = randInt(2, totalRounds);
+    correctValue = Math.pow(2, wins);
+    unit = 'チーム';
+    prompt = `勝ち残り式のトーナメント戦（引き分けはなく、1回でも負けたチームはその時点で敗退する）で、あるチームが${wins}回勝って優勝した。このトーナメントには何チームが参加していたか。`;
+    explanation = `勝ち残り式のトーナメントでは、優勝チームの勝利数がそのままラウンド数（参加チーム数を2で何回割ると1になるか）と一致する。${wins}回勝って優勝したので、参加チーム数は2^${wins}＝${correctValue}チームとなる。`;
+  }
+
+  const distractorPool = new Set();
+  [1, 2, -1, -2].forEach(d => { const v = correctValue + d; if (v > 0 && v !== correctValue) distractorPool.add(v); });
+  [0.5, 2].forEach(k => { const v = Math.round(correctValue * k); if (v > 0 && v !== correctValue) distractorPool.add(v); });
+  let distractors = shuffle([...distractorPool]).slice(0, 3);
+  let fallback = 1;
+  while (distractors.length < 3) {
+    if (fallback !== correctValue && !distractors.includes(fallback)) distractors.push(fallback);
+    fallback++;
+  }
+  const choices = shuffle([correctValue, ...distractors]).map(v => `${v}${unit}`);
+  const correctText = `${correctValue}${unit}`;
 
   return { prompt, choices, correctIndex: choices.indexOf(correctText), explanation };
 }
@@ -743,7 +814,7 @@ function buildFlowPercentProblem(difficulty) {
   const choices = shuffle([correctPct, ...distractors]).map(v => `${v}％`);
   const correctText = `${correctPct}％`;
 
-  const prompt = `下の図は、${sources.join('、')}を訪れた人が、それぞれ比率にしたがって${final}まで移動する経路を表したものである（比率は一定とする）。${targetSource}を訪れた人数を100％としたとき、${final}に到達する人の割合はおよそ何％か。必要なら小数点以下を四捨五入すること。`;
+  const prompt = `下の図は、${sources.join('、')}を訪れた人が、それぞれ比率にしたがって${final}まで移動する経路を表したものである（比率は一定とする）。${targetSource}を訪れた人を100％としたとき、そのうち${final}に到達する人の割合はおよそ何％か。必要なら小数点以下を四捨五入すること。`;
 
   const explanation = `${targetSource}から${final}に至る経路は「${targetSource}→${mids[midIdx]}→${final}」の1通りだけであり、他の起点・中継地点はこの計算には関係ない。${Math.round(s2mRatio[targetIdx] * 100)}％ × ${Math.round(m2fRatio[midIdx] * 100)}％ ＝ ${Math.round(pathRatio * 10000) / 100}％ となり、四捨五入すると${correctPct}％である。`;
 
@@ -923,26 +994,30 @@ function generateFlowProblem(examType, difficulty) {
    直接答えを導ける分野。SPI-Uのほうが数値の規模や計算段階（2段階の
    利益計算など）が大きくなる傾向を反映し、examTypeで数値レンジを
    明確に分けている。 */
+// 各パラメータは「SPI-Hの全レンジ（中級・上級とも）が、SPI-Uの全レンジより
+// 必ず小さくなる」ように意図的に間隔を空けている。中級/上級の違いは同じ
+// 出題区分の中でのゆるやかな段階づけとして扱い、SPI-U（易しい設定）とSPI-H
+// （難しい設定）が数値的に重なって「同じような問題」に見えることがないようにする。
 const NUMERIC_PARAMS = {
   sets: {
-    U: { mid: { totalMin: 60, totalMax: 120, use3: false }, high: { totalMin: 100, totalMax: 200, use3: true } },
-    H: { mid: { totalMin: 30, totalMax: 60, use3: false }, high: { totalMin: 50, totalMax: 100, use3: false } },
+    H: { mid: { totalMin: 25, totalMax: 40, use3: false }, high: { totalMin: 45, totalMax: 65, use3: false } },
+    U: { mid: { totalMin: 80, totalMax: 115, use3: false }, high: { totalMin: 125, totalMax: 180, use3: true } },
   },
   pnc: {
-    U: { mid: { nMin: 6, nMax: 8 }, high: { nMin: 7, nMax: 10 } },
-    H: { mid: { nMin: 4, nMax: 6 }, high: { nMin: 5, nMax: 7 } },
+    H: { mid: { nMin: 4, nMax: 5 }, high: { nMin: 6, nMax: 7 } },
+    U: { mid: { nMin: 8, nMax: 9 }, high: { nMin: 10, nMax: 12 } },
   },
   probability: {
-    U: { mid: { poolMin: 6, poolMax: 10 }, high: { poolMin: 8, poolMax: 14 } },
-    H: { mid: { poolMin: 4, poolMax: 7 }, high: { poolMin: 6, poolMax: 9 } },
+    H: { mid: { poolMin: 5, poolMax: 7 }, high: { poolMin: 8, poolMax: 10 } },
+    U: { mid: { poolMin: 12, poolMax: 16 }, high: { poolMin: 18, poolMax: 24 } },
   },
   profit: {
-    U: { mid: { kMax: 8, twoStage: false }, high: { kMax: 20, twoStage: true } },
-    H: { mid: { kMax: 4, twoStage: false }, high: { kMax: 8, twoStage: false } },
+    H: { mid: { kMin: 2, kMax: 4, twoStage: false }, high: { kMin: 3, kMax: 6, twoStage: false } },
+    U: { mid: { kMin: 8, kMax: 14, twoStage: false }, high: { kMin: 12, kMax: 25, twoStage: true } },
   },
   ratio: {
-    U: { mid: { scaleMin: 4, scaleMax: 30 }, high: { scaleMin: 10, scaleMax: 80 } },
-    H: { mid: { scaleMin: 2, scaleMax: 12 }, high: { scaleMin: 5, scaleMax: 30 } },
+    H: { mid: { scaleMin: 2, scaleMax: 8 }, high: { scaleMin: 8, scaleMax: 15 } },
+    U: { mid: { scaleMin: 18, scaleMax: 35 }, high: { scaleMin: 35, scaleMax: 80 } },
   },
 };
 
@@ -955,14 +1030,17 @@ const SETS_TOPIC_TRIOS = [
 ];
 
 function buildSets2Problem(p) {
-  const x = randInt(5, Math.max(6, Math.round(p.totalMin * 0.15)));
-  const onlyA = randInt(8, Math.max(9, Math.round(p.totalMax * 0.22)));
-  const onlyB = randInt(8, Math.max(9, Math.round(p.totalMax * 0.22)));
+  const total = randInt(p.totalMin, p.totalMax);
+  // 全体をランダムな比率で「両方」「Aのみ」「Bのみ」「どちらでもない」に配分する
+  // （どの区分もtotalに対して割合ベースで決めるため、totalが必ず指定レンジ内に収まる）
+  const neither = Math.max(1, Math.round(total * (0.08 + Math.random() * 0.14))); // 8%〜22%
+  const unionCount = total - neither;
+  const x = Math.max(1, Math.round(unionCount * (0.15 + Math.random() * 0.20))); // unionの15%〜35%
+  const remain = unionCount - x;
+  const onlyA = Math.max(1, Math.round(remain * (0.3 + Math.random() * 0.4)));
+  const onlyB = Math.max(1, remain - onlyA);
   const a = x + onlyA;
   const b = x + onlyB;
-  const unionCount = onlyA + onlyB + x;
-  const neither = randInt(5, Math.max(6, Math.round(p.totalMax * 0.18)));
-  const total = unionCount + neither;
   const [labelA, labelB] = pick(SETS_TOPIC_PAIRS);
 
   const kind = pick(['onlyA', 'onlyB', 'neither', 'union']);
@@ -1051,8 +1129,9 @@ function generatePncProblem(examType, difficulty) {
   if (variant === 'perm') {
     const r = randInt(2, Math.min(n - 1, 4));
     correctValue = nPr(n, r);
+    const terms = Array.from({ length: r }, (_, i) => n - i);
     prompt = `${n}人の中から${r}人を選んで一列に並べる方法は何通りあるか。`;
-    explanation = `${n}人から${r}人を選んで並べる順列なので、${n}P${r}＝${n}×${n - 1}×…×${n - r + 1}＝${correctValue}通り。`;
+    explanation = `${n}人から${r}人を選んで並べる順列なので、${n}P${r}＝${terms.join('×')}＝${correctValue}通り。`;
   } else if (variant === 'comb') {
     const r = randInt(2, Math.min(n - 1, 5));
     correctValue = nCr(n, r);
@@ -1061,7 +1140,7 @@ function generatePncProblem(examType, difficulty) {
   } else if (variant === 'adjacent') {
     correctValue = factorial(n - 1) * 2;
     prompt = `${n}人が一列に並ぶとき、特定の2人が隣り合う並び方は何通りあるか。`;
-    explanation = `隣り合う2人を1つのブロックとみなすと、残り${n - 2}人とブロックの計${n - 1}個を並べる方法は(${n - 1})!通り。ブロック内の2人の並び方が2通りあるので、(${n - 1})!×2＝${correctValue}通り。`;
+    explanation = `隣り合う2人を1つのブロックとみなすと、残り${n - 2}人とブロックの計${n - 1}個を並べる方法は${n - 1}!通り。ブロック内の2人の並び方が2通りあるので、${n - 1}!×2＝${correctValue}通り。`;
   } else if (variant === 'circular') {
     correctValue = factorial(n - 1);
     prompt = `${n}人が円卓に並ぶ方法は何通りあるか（回転して同じ並びになるものは1通りとみなす）。`;
@@ -1090,12 +1169,14 @@ function generatePncProblem(examType, difficulty) {
 /* ---------- 確率 ---------- */
 function generateProbabilityProblem(examType, difficulty) {
   const p = NUMERIC_PARAMS.probability[examType][difficulty];
+  const tier = `${examType}-${difficulty}`;
   const variant = pick(['balls', 'dice', 'lottery']);
   let prompt, fracNum, fracDen, explanation;
 
   if (variant === 'balls') {
-    const red = randInt(3, Math.round(p.poolMax * 0.5));
-    const white = randInt(3, Math.round(p.poolMax * 0.5));
+    const rMin = Math.max(2, Math.round(p.poolMin * 0.3));
+    const red = randInt(rMin, Math.round(p.poolMax * 0.5));
+    const white = randInt(rMin, Math.round(p.poolMax * 0.5));
     const totalBalls = red + white;
     const draw = 2;
     const kind = pick(['bothRed', 'oneEach']);
@@ -1112,16 +1193,46 @@ function generateProbabilityProblem(examType, difficulty) {
       explanation = `全体から2個選ぶ方法は${totalBalls}C2＝${denom}通り。赤玉1個・白玉1個を選ぶ方法は${red}×${white}＝${red * white}通りなので、確率は${red * white}/${denom}。`;
     }
   } else if (variant === 'dice') {
-    const target = randInt(4, 10);
-    let count = 0;
-    for (let i = 1; i <= 6; i++) for (let j = 1; j <= 6; j++) if (i + j === target) count++;
-    fracNum = count;
-    fracDen = 36;
-    prompt = `大小2つのサイコロを同時に振るとき、出た目の和が${target}になる確率を求めよ。`;
-    explanation = `目の出方は全部で6×6＝36通り。和が${target}になる組み合わせは${count}通りなので、確率は${count}/36。`;
+    if (tier === 'H-mid') {
+      // 中級（SPI-H）：サイコロ1つの単純な事象
+      const kind = pick(['exact', 'atLeast', 'atMost']);
+      const target = randInt(1, 6);
+      let count, condText;
+      if (kind === 'exact') { count = 1; condText = `${target}である`; }
+      else if (kind === 'atLeast') { count = 6 - target + 1; condText = `${target}以上である`; }
+      else { count = target; condText = `${target}以下である`; }
+      fracNum = count;
+      fracDen = 6;
+      prompt = `1つのサイコロを1回投げるとき、出た目が${condText}確率を求めよ。`;
+      explanation = `目の出方は全部で6通り。条件に合う目は${count}通りなので、確率は${count}/6。`;
+    } else if (tier === 'H-high' || tier === 'U-mid') {
+      // 上級（SPI-H）／中級（SPI-U）：サイコロ2つの和がちょうど◯になる確率
+      const targetPool = tier === 'H-high' ? [5, 6, 7, 8, 9] : [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+      const target = pick(targetPool);
+      let count = 0;
+      for (let i = 1; i <= 6; i++) for (let j = 1; j <= 6; j++) if (i + j === target) count++;
+      fracNum = count;
+      fracDen = 36;
+      prompt = `大小2つのサイコロを同時に振るとき、出た目の和が${target}になる確率を求めよ。`;
+      explanation = `目の出方は全部で6×6＝36通り。和が${target}になる組み合わせは${count}通りなので、確率は${count}/36。`;
+    } else {
+      // 上級（SPI-U）：範囲条件（複数の和をまとめて数える、最も手間がかかるパターン）
+      const kind = pick(['atLeast', 'atMost']);
+      const target = kind === 'atLeast' ? randInt(8, 10) : randInt(5, 7);
+      let count = 0;
+      for (let i = 1; i <= 6; i++) for (let j = 1; j <= 6; j++) {
+        if (kind === 'atLeast' ? i + j >= target : i + j <= target) count++;
+      }
+      fracNum = count;
+      fracDen = 36;
+      const condText = kind === 'atLeast' ? `${target}以上になる` : `${target}以下になる`;
+      prompt = `大小2つのサイコロを同時に振るとき、出た目の和が${condText}確率を求めよ。`;
+      explanation = `目の出方は全部で6×6＝36通り。条件に合う組み合わせを和ごとに数え上げると${count}通りなので、確率は${count}/36。`;
+    }
   } else {
-    const total = randInt(6, p.poolMax);
-    const win = randInt(2, Math.max(3, Math.round(total * 0.4)));
+    const total = randInt(p.poolMin, p.poolMax);
+    const winMin = Math.max(2, Math.round(p.poolMin * 0.15));
+    const win = randInt(winMin, Math.max(winMin + 1, Math.round(total * 0.4)));
     const denom = total;
     const kind = pick(['firstWin', 'twoWins']);
     if (kind === 'firstWin') {
@@ -1152,7 +1263,7 @@ function generateProbabilityProblem(examType, difficulty) {
 /* ---------- 損益算 ---------- */
 function generateProfitProblem(examType, difficulty) {
   const p = NUMERIC_PARAMS.profit[examType][difficulty];
-  const k = randInt(2, p.kMax);
+  const k = randInt(p.kMin, p.kMax);
   const cost = 400 * k;
   const m5 = randInt(2, 10); // 利益率 10%〜50%（5%刻み）
   const markupPct = m5 * 5;
